@@ -15,6 +15,8 @@ interface BookViewerProps {
     title_cover?: string;
     book_cover?: string;
     saved_book_id?: string;
+    cover_file?: string;
+    cover_b64_json?: string;
   };
   onExportPDF: (bookId: string) => Promise<void>;
 }
@@ -62,18 +64,18 @@ const IllustrationBox = ({ page }: { page: BookPage }) => {
   );
 };
 
-const SinglePage = ({ page }: { page: BookPage }) => (
-  <div className="w-full h-full flex flex-col items-center justify-between p-4 md:p-6 lg:p-8">
-    <div className="w-full h-[70%] relative rounded-lg overflow-hidden bg-gray-50">
-      <IllustrationBox page={page} />
+const PageContent = ({ page, pageNumber }: { page: BookPage, pageNumber: number }) => {
+  return (
+    <div className="h-full flex flex-col">
+      <div className="relative w-full h-1/2 mb-4">
+        <IllustrationBox page={page} />
+      </div>
+      <div className="prose flex-1 overflow-auto text-gray-800">
+        <p>{page.content}</p>
+      </div>
     </div>
-    <div className="h-[25%] flex items-center">
-      <p className="text-gray-800 text-center text-sm md:text-base lg:text-lg leading-relaxed">
-        {page.content}
-      </p>
-    </div>
-  </div>
-);
+  );
+};
 
 export default function BookViewer({ bookData, onExportPDF }: BookViewerProps) {
   const [currentPage, setCurrentPage] = useState(0); // 0 represents cover, 1-n represents actual pages
@@ -143,19 +145,19 @@ export default function BookViewer({ bookData, onExportPDF }: BookViewerProps) {
                 {currentPage === 0 ? (
                   // Cover Page
                   <div className="h-full flex flex-col items-center justify-center">
-                    {bookData.book_cover ? (
+                    {bookData.cover_file ? (
                       <div className="relative w-full h-full">
                         <Image
-                          src={`${API_URL}/images/${bookData.book_cover}`}
+                          src={`${API_URL}/images/${bookData.cover_file}`}
                           alt="Book Cover"
                           fill
                           className="object-contain rounded"
                         />
                       </div>
-                    ) : bookData.book_cover ? (
+                    ) : bookData.cover_b64_json ? (
                       <div className="relative w-full h-full">
                         <Image
-                          src={`data:image/png;base64,${bookData.book_cover}`}
+                          src={`data:image/png;base64,${bookData.cover_b64_json}`}
                           alt="Book Cover"
                           fill
                           className="object-contain rounded"
@@ -170,60 +172,22 @@ export default function BookViewer({ bookData, onExportPDF }: BookViewerProps) {
                   </div>
                 ) : (
                   // Content Page
-                  <div className="h-full flex flex-col">
-                    {bookData.book_content[leftPageIndex]?.illustration_file ? (
-                      <div className="relative w-full h-1/2 mb-4">
-                        <Image
-                          src={`${API_URL}/images/${bookData.book_content[leftPageIndex].illustration_file}`}
-                          alt={`Page ${leftPageIndex + 1} Illustration`}
-                          fill
-                          className="object-contain rounded"
-                        />
-                      </div>
-                    ) : bookData.book_content[leftPageIndex]?.b64_json ? (
-                      <div className="relative w-full h-1/2 mb-4">
-                        <Image
-                          src={`data:image/png;base64,${bookData.book_content[leftPageIndex].b64_json}`}
-                          alt={`Page ${leftPageIndex + 1} Illustration`}
-                          fill
-                          className="object-contain rounded"
-                        />
-                      </div>
-                    ) : null}
-                    <div className="prose flex-1 overflow-auto text-gray-800">
-                      <p>{bookData.book_content[leftPageIndex]?.content}</p>
-                    </div>
-                  </div>
+                  bookData.book_content[leftPageIndex] && (
+                    <PageContent 
+                      page={bookData.book_content[leftPageIndex]} 
+                      pageNumber={leftPageIndex + 1} 
+                    />
+                  )
                 )}
               </div>
 
               {/* Right Page (Only shown for content pages) */}
               {showRightPage && rightPageIndex < totalPages && (
                 <div className="w-1/2 aspect-[3/4] bg-gray-50 rounded-lg shadow p-4">
-                  <div className="h-full flex flex-col">
-                    {bookData.book_content[rightPageIndex]?.illustration_file ? (
-                      <div className="relative w-full h-1/2 mb-4">
-                        <Image
-                          src={`${API_URL}/images/${bookData.book_content[rightPageIndex].illustration_file}`}
-                          alt={`Page ${rightPageIndex + 1} Illustration`}
-                          fill
-                          className="object-contain rounded"
-                        />
-                      </div>
-                    ) : bookData.book_content[rightPageIndex]?.b64_json ? (
-                      <div className="relative w-full h-1/2 mb-4">
-                        <Image
-                          src={`data:image/png;base64,${bookData.book_content[rightPageIndex].b64_json}`}
-                          alt={`Page ${rightPageIndex + 1} Illustration`}
-                          fill
-                          className="object-contain rounded"
-                        />
-                      </div>
-                    ) : null}
-                    <div className="prose flex-1 overflow-auto text-gray-800">
-                      <p>{bookData.book_content[rightPageIndex]?.content}</p>
-                    </div>
-                  </div>
+                  <PageContent 
+                    page={bookData.book_content[rightPageIndex]} 
+                    pageNumber={rightPageIndex + 1} 
+                  />
                 </div>
               )}
             </motion.div>

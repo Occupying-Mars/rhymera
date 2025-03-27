@@ -6,8 +6,8 @@ import Providers from "@/components/Providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Rhymera - AI Book Generator",
-  description: "Generate beautiful books with AI",
+  title: "Rhymera - AI Children's Book Generator",
+  description: "Create beautiful children's books with AI",
 };
 
 export default function RootLayout({

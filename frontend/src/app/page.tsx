@@ -12,7 +12,7 @@ interface BookPage {
   page: number;
   content: string;
   illustration: string;
-  illustration_file: string | null;
+  illustration_file?: string;
   b64_json?: string;
 }
 
@@ -21,6 +21,11 @@ interface GeneratedBook {
   book_type: string;
   pages: number;
   saved_book_id?: string;
+  title: string;
+  title_cover?: string;
+  book_cover?: string;
+  cover_file?: string;
+  cover_b64_json?: string;
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -74,7 +79,12 @@ export default function Home() {
     setIsGenerating(true);
     try {
       const book = await books.generateBook(bookRequest);
-      setGeneratedBook(book);
+      // Add title from the topic if not provided
+      const bookWithTitle = {
+        ...book,
+        title: book.title || bookRequest.topic
+      };
+      setGeneratedBook(bookWithTitle);
       toast.success('Book generated successfully!');
     } catch (error) {
       toast.error('Failed to generate book. Please try again.');

@@ -103,6 +103,8 @@ export default function BookPage({ params }: Props) {
           title: book.title,
           title_cover: book.content.title_cover,
           book_cover: book.content.book_cover,
+          cover_file: book.content.cover_file,
+          cover_b64_json: book.content.cover_b64_json,
           saved_book_id: book.id
         }} 
         onExportPDF={handleExportPDF}

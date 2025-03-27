@@ -47,6 +47,8 @@ export interface BookContent {
     pages: number;
     book_cover?: string;
     title_cover?: string;
+    cover_file?: string;
+    cover_b64_json?: string;
 }
 
 export interface Book {

@@ -222,6 +222,30 @@ async def generate_book(
         # Extract title from book data or use topic as fallback
         book_title = book_data.get("title", request.topic)
 
+        # Generate and save the cover image
+        if "book_cover" in book_data:
+            cover_images = img_gen.generate_image(
+                prompt=book_data["book_cover"],
+                style="book cover illustration style"
+            )
+            
+            if cover_images and isinstance(cover_images, list) and len(cover_images) > 0:
+                cover_image_data = cover_images[0]
+                if "b64_json" in cover_image_data:
+                    # Store both base64 data and save to GridFS
+                    book_data["cover_b64_json"] = cover_image_data["b64_json"]
+                    cover_image_bytes = base64.b64decode(cover_image_data["b64_json"])
+                    cover_file_id = await save_image(cover_image_bytes, f"book_cover_{book_title}.png")
+                    book_data["cover_file"] = cover_file_id
+                else:
+                    logger.error(f"No b64_json in cover image data")
+                    book_data["cover_file"] = None
+                    book_data["cover_b64_json"] = None
+            else:
+                logger.error("No cover images generated")
+                book_data["cover_file"] = None
+                book_data["cover_b64_json"] = None
+
         # Generate illustrations for each page
         for page in book_data.get("book_content", []):
             # Generate image based on the illustration description

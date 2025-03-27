@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getSession } from 'next-auth/react';
 import { LoginCredentials, RegisterData, Token, User, BookRequest, Book, GoogleLoginCredentials, SavedBook } from '@/types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -11,10 +12,10 @@ export const api = axios.create({
 });
 
 // Add token to requests if it exists
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(async (config) => {
+    const session = await getSession();
+    if (session?.accessToken) {
+        config.headers.Authorization = `Bearer ${session.accessToken}`;
     }
     return config;
 });
