@@ -15,30 +15,34 @@ try:
 except Exception as e:
     logger.error(f"Error creating index: {e}")
 
-def create_book(book: BookCreate) -> Book:
+async def create_book(book: BookCreate) -> Book:
     book_dict = book.model_dump()
     book_dict["created_at"] = datetime.utcnow()
-    result = books_collection.insert_one(book_dict)
+    result = await books_collection.insert_one(book_dict)
     book_dict["id"] = str(result.inserted_id)
     return Book(**book_dict)
 
-def get_user_books(user_id: str, limit: int = 20, skip: int = 0) -> List[Book]:
+async def get_user_books(user_id: str, limit: int = 20, skip: int = 0) -> List[Book]:
     try:
         # Only get books belonging to the user, sorted by creation date
-        books = books_collection.find(
+        cursor = books_collection.find(
             {"user_id": user_id},
             sort=[("created_at", -1)],
             limit=limit,
             skip=skip
         )
-        return [Book(id=str(book["_id"]), **book) for book in books]
+        books = []
+        async for book in cursor:
+            book["id"] = str(book["_id"])
+            books.append(Book(**book))
+        return books
     except Exception as e:
         logger.error(f"Error fetching user books: {e}")
         return []
 
-def get_book(book_id: str, user_id: str) -> Book | None:
+async def get_book(book_id: str, user_id: str) -> Book | None:
     try:
-        book = books_collection.find_one({
+        book = await books_collection.find_one({
             "_id": ObjectId(book_id),
             "user_id": user_id  # Only get books owned by the user
         })

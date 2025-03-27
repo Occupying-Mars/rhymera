@@ -38,17 +38,33 @@ export interface BookPage {
     content: string;
     illustration: string;
     illustration_file?: string;
+    b64_json?: string;
 }
 
-export interface SavedBook extends Book {
-    id: string;
-    user_id: string;
-    created_at: string;
-    title: string;
+export interface BookContent {
+    book_content: BookPage[];
+    book_type: string;
+    pages: number;
+    book_cover?: string;
+    title_cover?: string;
 }
 
 export interface Book {
     pages: number;
     book_type: string;
     book_content: BookPage[];
+    title?: string;
+    title_cover?: string;
+    book_cover?: string;
+    cover_file?: string;
+    cover_b64_json?: string;
+    saved_book_id?: string;
+}
+
+export interface SavedBook {
+    id: string;
+    user_id: string;
+    title: string;
+    content: BookContent;
+    created_at?: string;
 } 

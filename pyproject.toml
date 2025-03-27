@@ -15,7 +15,7 @@ uvicorn = "^0.34.0"
 python-jose = {extras = ["cryptography"], version = "^3.4.0"}
 passlib = {extras = ["bcrypt"], version = "^1.7.4"}
 python-multipart = "^0.0.20"
-pymongo = {extras = ["srv"], version = "^4.11.3"}
+motor = {extras = ["srv"], version = "^3.3.2"}
 pydantic-settings = "^2.8.1"
 pydantic = {extras = ["email"], version = "^2.10.6"}
 google-auth = "^2.38.0"

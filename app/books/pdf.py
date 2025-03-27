@@ -29,37 +29,20 @@ def create_image_from_bytes(image_bytes: bytes) -> str:
         logger.error(f"Error creating image from bytes: {str(e)}")
         return None
 
-def generate_pdf(book_data: dict) -> BytesIO:
+async def generate_pdf(book_data: dict) -> BytesIO:
     try:
         buffer = BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter)
-        styles = getSampleStyleSheet()
         story = []
 
-        # Create custom styles
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Title'],
-            fontSize=24,
-            spaceAfter=30
-        )
-        
-        heading_style = ParagraphStyle(
-            'CustomHeading',
-            parent=styles['Heading1'],
-            fontSize=18,
-            spaceAfter=20
-        )
-        
-        body_style = ParagraphStyle(
-            'CustomBody',
-            parent=styles['Normal'],
-            fontSize=12,
-            spaceAfter=12
-        )
+        # Define styles
+        styles = getSampleStyleSheet()
+        heading_style = styles['Heading1']
+        body_style = styles['BodyText']
 
         # Add title
-        story.append(Paragraph(book_data.get('title', 'Untitled'), title_style))
+        title = book_data.get('title', 'Untitled Book')
+        story.append(Paragraph(title, heading_style))
         story.append(Spacer(1, 12))
 
         # Add each page
@@ -84,7 +67,7 @@ def generate_pdf(book_data: dict) -> BytesIO:
             # If no base64, try MongoDB
             if not image_data and page.get('illustration_file'):
                 try:
-                    result = get_image(page['illustration_file'])
+                    result = await get_image(page['illustration_file'])
                     if result:
                         image_data = result[0]
                 except Exception as e:

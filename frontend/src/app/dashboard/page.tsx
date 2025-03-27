@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { books } from '@/utils/api';
 import { Book, SavedBook, BookPage } from '@/types';
 import toast from 'react-hot-toast';
+import { useRouter } from 'next/navigation';
 
 export default function DashboardPage() {
     const { user, logout } = useAuth();
@@ -19,6 +20,7 @@ export default function DashboardPage() {
         book_type: 'story',
         topic: '',
     });
+    const router = useRouter();
 
     useEffect(() => {
         loadSavedBooks();
@@ -38,14 +40,7 @@ export default function DashboardPage() {
     };
 
     const handleViewBook = async (bookId: string) => {
-        try {
-            const bookData = await books.getBookById(bookId);
-            setSelectedBook(bookData);
-            setShowSavedBooks(false);
-        } catch (error) {
-            console.error('Error loading book:', error);
-            toast.error('Failed to load book');
-        }
+        router.push(`/dashboard/${bookId}`);
     };
 
     const handleDownloadPdf = async (bookId: string) => {
@@ -86,12 +81,12 @@ export default function DashboardPage() {
             
             // Save the book with proper structure
             const bookToSave = {
-                title: formData.topic,
+                title: generatedBook.title || generatedBook.title_cover || formData.topic,
                 book_content: generatedBook.book_content,
                 book_type: formData.book_type,
                 pages: formData.pages
             };
-            await books.saveBook(bookToSave, formData.topic);
+            await books.saveBook(bookToSave, bookToSave.title);
             toast.success('Book saved successfully!');
             loadSavedBooks();
         } catch (error) {
@@ -237,10 +232,10 @@ export default function DashboardPage() {
                                     >
                                         <h3 className="text-xl font-semibold text-gray-900 mb-2">{book.title}</h3>
                                         <p className="text-sm text-gray-600 mb-2">
-                                            Created: {new Date(book.created_at).toLocaleDateString()}
+                                            Created: {book.created_at ? new Date(book.created_at).toLocaleDateString() : 'Unknown date'}
                                         </p>
                                         <p className="text-sm text-gray-600 mb-4">
-                                            {book.pages} pages • {book.book_type}
+                                            {book.content.pages} pages • {book.content.book_type}
                                         </p>
                                         <button
                                             onClick={(e) => {

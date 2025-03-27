@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { books } from '@/utils/api';
 import toast from 'react-hot-toast';
 import BookViewer from '@/components/BookViewer';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface BookPage {
   page: number;
@@ -36,6 +37,8 @@ interface BookViewerProps {
 
 export default function Home() {
   const router = useRouter();
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
   const [bookRequest, setBookRequest] = useState({
     pages: 5,
     book_type: 'story',
@@ -43,6 +46,23 @@ export default function Home() {
   });
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedBook, setGeneratedBook] = useState<GeneratedBook | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      router.replace('/dashboard');
+    } else {
+      setIsLoading(false);
+    }
+  }, [user, router]);
+
+  // Show loading state while checking authentication
+  if (isLoading || user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

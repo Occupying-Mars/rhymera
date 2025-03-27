@@ -864,6 +864,30 @@ files = [
 all = ["flake8 (>=7.1.1)", "mypy (>=1.11.2)", "pytest (>=8.3.2)", "ruff (>=0.6.2)"]
 
 [[package]]
+name = "motor"
+version = "3.7.0"
+description = "Non-blocking MongoDB driver for Tornado or asyncio"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "motor-3.7.0-py3-none-any.whl", hash = "sha256:61bdf1afded179f008d423f98066348157686f25a90776ea155db5f47f57d605"},
+    {file = "motor-3.7.0.tar.gz", hash = "sha256:0dfa1f12c812bd90819c519b78bed626b5a9dbb29bba079ccff2bfa8627e0fec"},
+]
+
+[package.dependencies]
+pymongo = ">=4.9,<5.0"
+
+[package.extras]
+aws = ["pymongo[aws] (>=4.5,<5)"]
+docs = ["aiohttp", "furo (==2024.8.6)", "readthedocs-sphinx-search (>=0.3,<1.0)", "sphinx (>=5.3,<8)", "sphinx-rtd-theme (>=2,<3)", "tornado"]
+encryption = ["pymongo[encryption] (>=4.5,<5)"]
+gssapi = ["pymongo[gssapi] (>=4.5,<5)"]
+ocsp = ["pymongo[ocsp] (>=4.5,<5)"]
+snappy = ["pymongo[snappy] (>=4.5,<5)"]
+test = ["aiohttp (>=3.8.7)", "cffi (>=1.17.0rc1)", "mockupdb", "pymongo[encryption] (>=4.5,<5)", "pytest (>=7)", "pytest-asyncio", "tornado (>=5)"]
+zstd = ["pymongo[zstd] (>=4.5,<5)"]
+
+[[package]]
 name = "passlib"
 version = "1.7.4"
 description = "comprehensive password hashing framework supporting over 30 schemes"
@@ -1603,4 +1627,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.10"
-content-hash = "fa42876a6a301a0f6513800b53113dd4ff68cf388aec3db8bfdda0555738cb1c"
+content-hash = "0f5f15c5b4c6aa3e8b4cc0008975dd953c2c68d0afa38531d7eded6c4bd05a61"

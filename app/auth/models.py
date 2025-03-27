@@ -36,22 +36,26 @@ class BookPage(BaseModel):
     content: str
     illustration: str
     illustration_file: Optional[str] = None
+    b64_json: Optional[str] = None
 
-class BookBase(BaseModel):
-    pages: int
-    book_type: str
+class BookContent(BaseModel):
     book_content: List[BookPage]
+    book_type: str
+    pages: int
+    book_cover: Optional[str] = None
+    title_cover: Optional[str] = None
 
 class BookCreate(BaseModel):
     user_id: str
     title: str
-    content: Dict[str, Any]
+    content: BookContent
 
 class Book(BaseModel):
     id: str
     user_id: str
     title: str
-    content: Dict[str, Any]
+    content: BookContent
+    created_at: Optional[datetime] = None
 
     class Config:
         json_encoders = {

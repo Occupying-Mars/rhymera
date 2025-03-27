@@ -20,7 +20,7 @@ from content import BookGenerator
 from imagegen import ImageGenerator
 from app.auth.models import UserCreate, User, Token, BookCreate, Book
 from app.auth.utils import verify_password, get_password_hash, create_access_token, verify_token
-from app.auth.database import users_collection
+from app.auth.database import users_collection, init_indexes
 from app.auth.config import settings
 from app.books import crud as book_crud
 from app.books.pdf import generate_pdf
@@ -66,7 +66,7 @@ async def get_current_user(token: Annotated[str | None, Depends(oauth2_scheme)])
         if token_data is None:
             return None
         
-        user = users_collection.find_one({"username": token_data.username})
+        user = await users_collection.find_one({"username": token_data.username})
         if user is None:
             return None
         
@@ -83,14 +83,14 @@ async def get_current_user(token: Annotated[str | None, Depends(oauth2_scheme)])
 @app.post("/register", response_model=User)
 async def register(user: UserCreate):
     # Check if username already exists
-    if users_collection.find_one({"username": user.username}):
+    if await users_collection.find_one({"username": user.username}):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Username already registered"
         )
     
     # Check if email already exists
-    if users_collection.find_one({"email": user.email}):
+    if await users_collection.find_one({"email": user.email}):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Email already registered"
@@ -102,7 +102,7 @@ async def register(user: UserCreate):
     del user_dict["password"]
     user_dict["hashed_password"] = hashed_password
     
-    result = users_collection.insert_one(user_dict)
+    result = await users_collection.insert_one(user_dict)
     
     return User(
         id=str(result.inserted_id),
@@ -124,7 +124,7 @@ async def google_login(request: GoogleLoginRequest):
             )
 
         # Check if user exists
-        user = users_collection.find_one({"google_id": request.token})
+        user = await users_collection.find_one({"google_id": request.token})
         
         if not user:
             logger.info(f"Creating new user for email: {request.email}")
@@ -134,7 +134,7 @@ async def google_login(request: GoogleLoginRequest):
             counter = 1
             
             # Make sure username is unique
-            while users_collection.find_one({"username": username}):
+            while await users_collection.find_one({"username": username}):
                 username = f"{base_username}{counter}"
                 counter += 1
 
@@ -146,7 +146,7 @@ async def google_login(request: GoogleLoginRequest):
                 "hashed_password": get_password_hash(request.token[:32])  # Use part of token as password
             }
             
-            result = users_collection.insert_one(user_dict)
+            result = await users_collection.insert_one(user_dict)
             user_id = result.inserted_id
             logger.info(f"Created new user with ID: {user_id}")
         else:
@@ -163,17 +163,16 @@ async def google_login(request: GoogleLoginRequest):
         
         logger.info(f"Generated access token for user: {username}")
         return {"access_token": access_token, "token_type": "bearer"}
-
     except Exception as e:
-        logger.error(f"Unexpected error during Google login: {str(e)}")
+        logger.error(f"Error in Google login: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"An error occurred during login: {str(e)}"
+            detail=str(e)
         )
 
 @app.post("/token", response_model=Token)
 async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    user = users_collection.find_one({"username": form_data.username})
+    user = await users_collection.find_one({"username": form_data.username})
     if not user or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -211,41 +210,23 @@ async def generate_book(
         )
 
         # Parse the book content
-        book_data = json.loads(book_json)
+        try:
+            book_data = json.loads(book_json)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing book JSON: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error parsing generated book content"
+            )
 
-        # Generate book cover first
-        if "book_cover" in book_data:
-            try:
-                cover_images = img_gen.generate_image(
-                    prompt=book_data["book_cover"],
-                    style="book cover illustration, professional quality"
-                )
-                
-                if cover_images and isinstance(cover_images, list) and len(cover_images) > 0:
-                    cover_data = cover_images[0]
-                    if "b64_json" in cover_data:
-                        book_data["cover_b64_json"] = cover_data["b64_json"]
-                        cover_bytes = base64.b64decode(cover_data["b64_json"])
-                        cover_file_id = save_image(cover_bytes, "book_cover.png")
-                        book_data["cover_file"] = cover_file_id
-                    else:
-                        logger.error("No b64_json in cover image data")
-                        book_data["cover_file"] = None
-                        book_data["cover_b64_json"] = None
-                else:
-                    logger.error("No cover images generated")
-                    book_data["cover_file"] = None
-                    book_data["cover_b64_json"] = None
-            except Exception as e:
-                logger.error(f"Error generating cover: {str(e)}")
-                book_data["cover_file"] = None
-                book_data["cover_b64_json"] = None
+        # Extract title from book data or use topic as fallback
+        book_title = book_data.get("title", request.topic)
 
         # Generate illustrations for each page
-        for page in book_data["book_content"]:
+        for page in book_data.get("book_content", []):
             # Generate image based on the illustration description
             images = img_gen.generate_image(
-                prompt=page["illustration"],
+                prompt=page.get("illustration", ""),
                 style="children's book illustration style"
             )
             
@@ -255,7 +236,7 @@ async def generate_book(
                     # Store both base64 data and save to GridFS
                     page["b64_json"] = image_data["b64_json"]
                     image_bytes = base64.b64decode(image_data["b64_json"])
-                    file_id = save_image(image_bytes, f"book_illustration_{page['page']}.png")
+                    file_id = await save_image(image_bytes, f"book_illustration_{page.get('page', '1')}.png")
                     page["illustration_file"] = file_id
                 else:
                     logger.error(f"No b64_json in image data: {image_data}")
@@ -269,20 +250,23 @@ async def generate_book(
         # Create book object
         book_create = BookCreate(
             user_id=current_user.id if current_user else "anonymous",
-            title=book_data.get("title", "Untitled"),
+            title=book_title,
             content=book_data
         )
 
         # Save the book to MongoDB
-        saved_book = book_crud.create_book(book_create)
+        saved_book = await book_crud.create_book(book_create)
         book_data["saved_book_id"] = str(saved_book.id)
 
         # Return the final book content as a string
-        return json.dumps(book_data, indent=2)
+        return book_data
 
     except Exception as e:
         logger.error(f"Error generating book: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 @app.post("/books", response_model=Book)
 async def create_book(
@@ -295,7 +279,7 @@ async def create_book(
             detail="Authentication required to save books"
         )
     book.user_id = current_user.id
-    return book_crud.create_book(book)
+    return await book_crud.create_book(book)
 
 @app.get("/books", response_model=List[Book])
 async def get_user_books(
@@ -308,9 +292,9 @@ async def get_user_books(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required to view books"
         )
-    return book_crud.get_user_books(current_user.id, limit=limit, skip=skip)
+    return await book_crud.get_user_books(current_user.id, limit=limit, skip=skip)
 
-@app.get("/books/{book_id}")
+@app.get("/books/{book_id}", response_model=Book)
 async def get_book(
     book_id: str,
     current_user: Annotated[User, Depends(get_current_user)]
@@ -320,7 +304,7 @@ async def get_book(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required to view books"
         )
-    book = book_crud.get_book(book_id, current_user.id)
+    book = await book_crud.get_book(book_id, current_user.id)
     if not book:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -329,30 +313,38 @@ async def get_book(
     return book
 
 @app.get("/books/{book_id}/pdf")
-async def download_pdf(
+async def get_book_pdf(
     book_id: str,
     current_user: Annotated[User, Depends(get_current_user)]
 ):
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required to download PDF"
+            detail="Authentication required to view books"
         )
-    book = book_crud.get_book(book_id, current_user.id)
+    
+    book = await book_crud.get_book(book_id, current_user.id)
     if not book:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Book not found"
         )
     
-    pdf_buffer = generate_pdf(book)
-    return Response(
-        content=pdf_buffer.getvalue(),
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f'attachment; filename="book-{book_id}.pdf"'
-        }
-    )
+    try:
+        pdf_buffer = await generate_pdf(book.content)
+        return Response(
+            content=pdf_buffer.getvalue(),
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{book.title}.pdf"'
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error generating PDF: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error generating PDF"
+        )
 
 @app.get("/images/{file_id}")
 async def get_image_by_id(file_id: str):
@@ -368,3 +360,11 @@ async def get_image_by_id(file_id: str):
             "Cache-Control": "public, max-age=31536000"
         }
     )
+
+@app.on_event("startup")
+async def startup_event():
+    try:
+        await init_indexes()
+        logger.info("Database indexes created successfully")
+    except Exception as e:
+        logger.error(f"Error creating database indexes: {e}")
