@@ -8,36 +8,22 @@ import toast from 'react-hot-toast';
 import BookViewer from '@/components/BookViewer';
 import { useAuth } from '@/contexts/AuthContext';
 
-interface BookPage {
-  page: number;
-  content: string;
-  illustration: string;
-  illustration_file?: string;
-  b64_json?: string;
-}
-
-interface GeneratedBook {
-  book_content: BookPage[];
+interface BookViewerData {
+  book_content: Array<{
+    page: number;
+    content: string;
+    illustration: string;
+    illustration_file?: string;
+    b64_json?: string;
+  }>;
   book_type: string;
   pages: number;
-  saved_book_id?: string;
   title: string;
   title_cover?: string;
   book_cover?: string;
+  saved_book_id?: string;
   cover_file?: string;
   cover_b64_json?: string;
-}
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-
-interface BookViewerProps {
-  bookData: {
-    book_content: BookPage[];
-    book_type: string;
-    pages: number;
-    saved_book_id?: string;
-  };
-  onExportPDF: (bookId: string) => Promise<void>;
 }
 
 export default function Home() {
@@ -50,7 +36,7 @@ export default function Home() {
     topic: '',
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatedBook, setGeneratedBook] = useState<GeneratedBook | null>(null);
+  const [generatedBook, setGeneratedBook] = useState<BookViewerData | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -60,7 +46,6 @@ export default function Home() {
     }
   }, [user, router]);
 
-  // Show loading state while checking authentication
   if (isLoading || user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -78,67 +63,53 @@ export default function Home() {
     
     setIsGenerating(true);
     try {
-      const book = await books.generateBook(bookRequest);
-      // Add title from the topic if not provided
-      const bookWithTitle = {
-        ...book,
-        title: book.title || bookRequest.topic
-      };
-      setGeneratedBook(bookWithTitle);
-      toast.success('Book generated successfully!');
+      const response = await books.generateBook(bookRequest);
+      
+      if (user) {
+        // If logged in, redirect to the book page
+        toast.success('Book generated successfully!');
+        router.push(`/dashboard/${response.id}`);
+      } else {
+        // If not logged in, show the book content inline
+        const bookData: BookViewerData = {
+          book_content: response.book_content.map((page: any) => ({
+            page: page.page,
+            content: page.content,
+            illustration: page.illustration,
+            illustration_file: page.illustration_file || undefined,
+            b64_json: page.b64_json
+          })),
+          book_type: response.book_type,
+          pages: response.pages,
+          title: bookRequest.topic,
+          title_cover: response.title_cover,
+          book_cover: response.book_cover,
+          cover_file: response.cover_file,
+          cover_b64_json: response.cover_b64_json
+        };
+        
+        setGeneratedBook(bookData);
+        toast.success('Book generated successfully!');
+      }
     } catch (error) {
+      console.error('Error generating book:', error);
       toast.error('Failed to generate book. Please try again.');
     } finally {
       setIsGenerating(false);
     }
   };
 
-  const handleExportPDF = async (bookId: string): Promise<void> => {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        toast.error('Please log in to export books as PDF');
-        return;
-      }
-
-      const response = await fetch(`${API_URL}/books/${bookId}/pdf`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.detail || 'Failed to export PDF');
-      }
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `book-${bookId}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      toast.success('PDF exported successfully!');
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to export PDF. Please try again.');
-    }
+  const handleExportPDF = async (bookId: string) => {
+    toast.error('Please log in to download books as PDF');
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
       <nav className="bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
           <h1 className="text-2xl font-bold text-indigo-600">Rhymera</h1>
           <div className="flex items-center space-x-4">
-            <Link 
-              href="/login"
-              className="text-gray-600 hover:text-gray-900"
-            >
+            <Link href="/login" className="text-gray-600 hover:text-gray-900">
               Login
             </Link>
             <Link
@@ -151,9 +122,8 @@ export default function Home() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="text-center mb-12">
           <h1 className="text-4xl tracking-tight font-extrabold text-gray-900 sm:text-5xl md:text-6xl">
             <span className="block">Create Beautiful Books</span>
             <span className="block text-indigo-600">with AI</span>
@@ -163,9 +133,8 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Book Generation Form */}
-        <div className="mt-10 max-w-xl mx-auto">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="max-w-xl mx-auto">
+          <form onSubmit={handleSubmit} className="space-y-6 bg-white shadow-lg rounded-lg p-6">
             <div>
               <label htmlFor="topic" className="block text-sm font-medium text-gray-700">
                 Book Topic
@@ -175,24 +144,11 @@ export default function Home() {
                 id="topic"
                 value={bookRequest.topic}
                 onChange={(e) => setBookRequest(prev => ({ ...prev, topic: e.target.value }))}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-black"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 placeholder="Enter a topic for your book"
               />
             </div>
-            <div>
-              <label htmlFor="pages" className="block text-sm font-medium text-gray-700">
-                Number of Pages
-              </label>
-              <input
-                type="number"
-                id="pages"
-                value={bookRequest.pages}
-                onChange={(e) => setBookRequest(prev => ({ ...prev, pages: parseInt(e.target.value) }))}
-                min="1"
-                max="10"
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-black"
-              />
-            </div>
+
             <div>
               <label htmlFor="book_type" className="block text-sm font-medium text-gray-700">
                 Book Type
@@ -201,20 +157,31 @@ export default function Home() {
                 id="book_type"
                 value={bookRequest.book_type}
                 onChange={(e) => setBookRequest(prev => ({ ...prev, book_type: e.target.value }))}
-                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-black"
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
               >
                 <option value="story">Story Book</option>
                 <option value="poem">Poem</option>
-                <option value="nursery">Nursery Rhyme</option>
+                <option value="nursery_rhyme">Nursery Rhyme</option>
                 <option value="propaganda">Propaganda (Satirical)</option>
                 <option value="educational">Educational</option>
               </select>
-              {bookRequest.book_type === 'propaganda' && (
-                <p className="mt-1 text-sm text-gray-500 italic">
-                  Note: Propaganda mode is satirical and meant for entertainment purposes only.
-                </p>
-              )}
             </div>
+
+            <div>
+              <label htmlFor="pages" className="block text-sm font-medium text-gray-700">
+                Number of Pages
+              </label>
+              <input
+                type="number"
+                id="pages"
+                min="1"
+                max="20"
+                value={bookRequest.pages}
+                onChange={(e) => setBookRequest(prev => ({ ...prev, pages: parseInt(e.target.value) }))}
+                className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+              />
+            </div>
+
             <button
               type="submit"
               disabled={isGenerating}
@@ -225,14 +192,13 @@ export default function Home() {
           </form>
         </div>
 
-        {/* Book Viewer */}
         {generatedBook && (
           <BookViewer
             bookData={generatedBook}
             onExportPDF={handleExportPDF}
           />
         )}
-      </div>
+      </main>
     </div>
   );
 }

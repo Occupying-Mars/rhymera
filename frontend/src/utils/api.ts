@@ -64,13 +64,9 @@ export const auth = {
 
 export const books = {
     generateBook: async (request: BookRequest): Promise<any> => {
-        const response = await api.post<string>('/generate-book', request);
-        try {
-            return JSON.parse(response.data);
-        } catch (error) {
-            console.error('Error parsing book data:', error);
-            return response.data;
-        }
+        const response = await api.post('/generate-book', request);
+        // The response is already JSON, no need to parse
+        return response.data;
     },
 
     saveBook: async (book: Book, title: string): Promise<SavedBook> => {
